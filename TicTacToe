@@ -1,0 +1,209 @@
+import pygame as pg
+import sys
+import os
+
+_image_library = {}
+
+
+def get_image(path):
+    global _image_library
+    image = _image_library.get(path)
+    if image is None:
+        simplePath = path.replace('/', os.sep).replace('\\', os.sep)
+        image = pg.image.load(simplePath)
+        _image_library[path] = image
+    return image
+
+
+class Board(object):
+    def __init__(self):
+        self.rows, self.cols = 3, 3
+        self.spaces = [(['e'] * self.cols) for row in range(self.rows)]
+        self.player_piece = 'x'
+        self.screen = pg.display.get_surface()
+
+    def move(self, location):
+        if self.spaces[location.pos[1]][location.pos[0]] == 'e':
+            self.spaces[location.pos[1]][location.pos[0]] = self.player_piece
+
+        self.__updateBoard(location)
+        if self.player_piece == 'x':
+            self.player_piece = 'o'
+        else:
+            self.player_piece = 'x'
+
+    def checkForStalemate(self):
+        e_count = 0
+        for row in range(self.rows):
+            for col in range(self.cols):
+                if self.spaces[row][col] == 'e':
+                    e_count += 1
+
+        if e_count == 0:
+            return [True, 'stale']
+
+        return [False, 'e']
+
+    def checkForWin(self):
+        win = self.__checkforhorizontalwin()
+        if win[0] is False:
+            win = self.__checkforverticalwin()
+            if win[0] is False:
+                win = self.__checkfordiagonalwin()
+
+        return win
+
+    def __checkforhorizontalwin(self):
+
+        for row in range(self.rows):
+            x_count, o_count = 0, 0
+            for col in range(self.cols):
+                if self.spaces[row][col] == 'x':
+                    x_count += 1
+                elif self.spaces[row][col] == 'o':
+                    o_count += 1
+
+                if x_count == 3:
+                    return [True, 'x']
+                elif o_count == 3:
+                    return [True, 'o']
+
+        return [False, 'e']
+
+    def __checkforverticalwin(self):
+        for col in range(self.cols):
+            x_count, o_count = 0, 0
+            for row in range(self.rows):
+                if self.spaces[row][col] == 'x':
+                    x_count += 1
+                elif self.spaces[row][col] == 'o':
+                    o_count += 1
+
+                if x_count == 3:
+                    return [True, 'x']
+                elif o_count == 3:
+                    return [True, 'o']
+
+        return [False, 'e']
+
+    def __checkfordiagonalwin(self):
+        x_count, o_count = 0, 0
+        for row in range(self.rows):
+            if self.spaces[row][row] == 'x':
+                x_count += 1
+            elif self.spaces[row][row] == 'o':
+                o_count += 1
+
+        if x_count == 3:
+            return [True, 'x']
+        elif o_count == 3:
+            return [True, 'o']
+
+        x_count = 0
+        o_count = 0
+        j = 0
+        for row in range(self.rows - 1, -1, -1):
+
+            if self.spaces[row][j] == 'x':
+                x_count += 1
+            elif self.spaces[row][j] == 'o':
+                o_count += 1
+            j += 1
+
+        if x_count == 3:
+            return [True, 'x']
+        elif o_count == 3:
+            return [True, 'o']
+
+        return [False, 'e']
+
+    def drawEmpty(self):
+        for row in range(self.rows):
+            y_loc = 0
+            x_loc = 0
+            for col in range(self.cols):
+
+                if row != 0:
+                    x_loc = (row * 200) + (10 * row)
+                if col != 0:
+                    y_loc = (col * 200) + (10 * col)
+                if self.spaces[row][col] == 'e':
+                    rect = self.__makeNewRect(x_loc, y_loc)
+                    pg.draw.rect(self.screen, [255, 255, 255], rect)
+
+    def __updateBoard(self, location):
+        imagepath = self.player_piece + '.png'
+        image = get_image(imagepath)
+        image.convert()
+        x_pos, y_pos = 0, 0
+        if location.pos[0] != 0:
+            x_pos = (location.pos[0] * 200) + (10 * location.pos[0])
+        if location.pos[1] != 0:
+            y_pos = (location.pos[1] * 200) + (10 * location.pos[1])
+
+        self.screen.blit(image, (x_pos, y_pos))
+        pg.display.update()
+
+    def __makeNewRect(self, x, y):
+        rect = pg.Rect(x, y, 200, 200)
+        return rect
+
+
+class Location(object):
+    def __init__(self, x, y):
+        self._pos = (x, y)
+
+    @property
+    def pos(self):
+        return self._pos
+
+
+def Main():
+    pg.init()
+    pg.display.set_caption("Tic-Tac-Toe")
+    screen = pg.display.set_mode((620, 620))
+    board = Board()
+    board.drawEmpty()
+    pg.display.update()
+    gameover = [False, 'e']
+    while gameover[0] is False:
+        for event in pg.event.get():
+            if event.type == pg.QUIT:
+                gameover[0] = True
+
+            if event.type == pg.MOUSEBUTTONDOWN:
+                mouse_pos = pg.mouse.get_pos()
+                x_pos = mouse_pos[0]
+                y_pos = mouse_pos[1]
+
+                if x_pos <= 200:
+                    x_pos = 0
+                elif x_pos <= 400:
+                    x_pos = 1
+                else:
+                    x_pos = 2
+
+                if y_pos <= 200:
+                    y_pos = 0
+                elif y_pos <= 400:
+                    y_pos = 1
+                else:
+                    y_pos = 2
+
+                loc = newLocation(x_pos, y_pos)
+                board.move(loc)
+                gameover = board.checkForWin()
+                if gameover[0] is False:
+                    gameover = board.checkForStalemate()
+
+    print(gameover[1])
+    pg.quit()
+    sys.exit()
+
+
+def newLocation(x, y):
+    location = Location(x, y)
+    return location
+
+
+Main()
